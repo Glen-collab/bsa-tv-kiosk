@@ -1,0 +1,1 @@
+pi ALL=(ALL) NOPASSWD: /sbin/reboot, /sbin/shutdown, /usr/sbin/shutdown, /usr/sbin/reboot, /usr/bin/pkill

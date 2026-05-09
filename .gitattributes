@@ -1,0 +1,7 @@
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.service text eol=lf
+files/labwc-autostart text eol=lf
+files/010_pi-kiosk-agent text eol=lf
+install.sh text eol=lf

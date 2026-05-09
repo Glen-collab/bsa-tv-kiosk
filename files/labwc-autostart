@@ -1,0 +1,97 @@
+#!/bin/bash
+# BSA Gym TV kiosk autostart — runs on labwc session start (Bookworm Wayland).
+# Designed to be bulletproof: Chromium auto-respawns if it ever exits, and the
+# URL is chosen per-respawn based on real connectivity + coach-code presence.
+
+# labwc invokes this with a minimal PATH — force a sensible one so `timeout`,
+# `curl`, `python3` etc. all resolve.
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+
+# Force the right Wayland env in case labwc invocation didn't propagate it —
+# Chromium silently misbehaves on headless sockets otherwise.
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+if [ -z "${WAYLAND_DISPLAY:-}" ]; then
+  for sock in "$XDG_RUNTIME_DIR"/wayland-*; do
+    name=$(basename "$sock")
+    case "$name" in
+      *.lock) continue ;;
+    esac
+    export WAYLAND_DISPLAY="$name"
+    break
+  done
+fi
+
+# Pi CPU serial — sent to the backend so each device is auto-registered.
+SERIAL=$(awk '/^Serial/{print $3}' /proc/cpuinfo)
+
+# Coach code — written to /home/pi/bsa-config by the setup portal on first boot.
+# No config file = kiosk shows setup instructions until the portal finishes.
+CONFIG_FILE="/home/pi/bsa-config"
+read_coach_code() {
+  # Pure-shell JSON value extractor. Avoids python3 because under memory
+  # pressure on a Pi Zero 2 W, python3 sometimes fails to spin up and
+  # returns empty — pick_url then falls through to setup-instructions
+  # instead of the workout URL on every chromium respawn.
+  if [ -f "$CONFIG_FILE" ]; then
+    grep -oE '"coach_code"[[:space:]]*:[[:space:]]*"[^"]*"' "$CONFIG_FILE" 2>/dev/null \
+      | sed -E 's/.*"coach_code"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/' \
+      | head -1
+  fi
+}
+
+SETUP_URL="file:///home/pi/setup-instructions.html"
+
+# Pick URL per respawn. If a coach code is configured, ALWAYS use the
+# workout URL — Chromium handles transient network failures gracefully
+# (its own offline page). The previous curl-based pre-check was too
+# brittle: a single timed-out probe would pin the kiosk on the
+# setup-instructions page until the next reboot.
+# Note: labwc sources this file via /bin/sh (dash), which does NOT
+# support bash's ${VAR/pat/repl} parameter substitution — build the URL
+# with plain concatenation so it works under both bash and dash.
+pick_url() {
+  CC=$(read_coach_code)
+  if [ -z "$CC" ]; then
+    echo "$SETUP_URL"
+    return
+  fi
+  echo "https://bestrongagain.netlify.app/tv/static?coach=${CC}&device=${SERIAL}"
+}
+
+clean_chromium_prefs() {
+  local prefs="$HOME/.config/chromium/Default/Preferences"
+  if [ -f "$prefs" ]; then
+    sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' "$prefs" 2>/dev/null || true
+    sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' "$prefs" 2>/dev/null || true
+  fi
+}
+
+# Respawn loop — crashes / URL changes all recover automatically.
+(
+  while true; do
+    clean_chromium_prefs
+    CURRENT_URL=$(pick_url)
+    # Final safety net — never launch chromium with no URL
+    [ -z "$CURRENT_URL" ] && CURRENT_URL="$SETUP_URL"
+    echo "[$(date -Is)] launching chromium with $CURRENT_URL" >> /tmp/kiosk-respawn.log
+    chromium \
+      --no-memcheck \
+      --kiosk \
+      --force-device-scale-factor=2 \
+      --password-store=basic \
+      --disable-features=PasswordCheckService \
+      --noerrdialogs \
+      --disable-infobars \
+      --disable-translate \
+      --disable-session-crashed-bubble \
+      --disable-features=TranslateUI \
+      --check-for-update-interval=31536000 \
+      --overscroll-history-navigation=0 \
+      --disable-pinch \
+      --incognito \
+      --autoplay-policy=no-user-gesture-required \
+      "$CURRENT_URL"
+    echo "[$(date -Is)] chromium exited (code=$?) — restarting in 3s" >> /tmp/kiosk-respawn.log
+    sleep 3
+  done
+) &

@@ -1,0 +1,16 @@
+[Unit]
+Description=BSA Kiosk Agent — polls backend for phone-triggered commands
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+ExecStart=/usr/bin/python3 /usr/local/sbin/bsa-kiosk-agent.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

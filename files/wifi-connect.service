@@ -1,0 +1,14 @@
+[Unit]
+Description=BSA Gym TV WiFi setup portal
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/wifi-connect-wrapper.sh
+TimeoutStartSec=900
+StandardOutput=append:/var/log/wifi-connect-wrapper.log
+StandardError=append:/var/log/wifi-connect-wrapper.log
+
+[Install]
+WantedBy=multi-user.target

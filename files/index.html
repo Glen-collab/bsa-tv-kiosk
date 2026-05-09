@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Set up your BSA Gym TV</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  body { min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 24px 16px 48px; }
+  .wrap { width: 100%; max-width: 460px; }
+
+  .brand {
+    text-align: center; font-size: 12px; font-weight: 800; letter-spacing: 3px;
+    color: rgba(255,255,255,0.5); margin-bottom: 8px; text-transform: uppercase;
+  }
+  h1 {
+    text-align: center; font-size: 28px; font-weight: 900; line-height: 1.15;
+    background: linear-gradient(135deg, #ffd200, #ff9a3c);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin-bottom: 6px;
+  }
+  .sub {
+    text-align: center; font-size: 13px; color: rgba(255,255,255,0.65);
+    margin-bottom: 26px; line-height: 1.4;
+  }
+
+  .card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    padding: 20px 18px;
+    backdrop-filter: blur(4px);
+  }
+
+  .field { margin-bottom: 16px; }
+  .field:last-child { margin-bottom: 0; }
+  label {
+    display: block; font-size: 11px; font-weight: 800;
+    color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  select, input[type=text], input[type=password] {
+    width: 100%; padding: 12px 14px;
+    background: rgba(0,0,0,0.3); color: #fff;
+    border: 1.5px solid rgba(255,255,255,0.2); border-radius: 10px;
+    font-size: 16px; font-family: inherit;
+    -webkit-appearance: none; appearance: none;
+  }
+  select { background-image: linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.6) 50%), linear-gradient(135deg, rgba(255,255,255,0.6) 50%, transparent 50%); background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%; background-size: 6px 6px, 6px 6px; background-repeat: no-repeat; padding-right: 34px; }
+  select option { background: #24243e; color: #fff; }
+  input:focus, select:focus { outline: none; border-color: #ff9a3c; }
+  .hint { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 5px; line-height: 1.4; }
+
+  .toggle {
+    display: flex; align-items: center; gap: 8px; margin-top: 6px;
+    font-size: 12px; color: rgba(255,255,255,0.7); cursor: pointer;
+  }
+  .toggle input { margin: 0; }
+
+  button.primary {
+    width: 100%; padding: 14px; margin-top: 8px;
+    background: linear-gradient(135deg, #ffd200, #ff9a3c);
+    color: #1a1a2e; font-size: 16px; font-weight: 900;
+    border: none; border-radius: 12px; cursor: pointer;
+    letter-spacing: 0.5px;
+  }
+  button.primary:disabled { opacity: 0.5; cursor: wait; }
+
+  button.refresh {
+    background: none; border: none; color: rgba(255,255,255,0.6);
+    font-size: 12px; cursor: pointer; text-decoration: underline;
+    margin-top: 6px; padding: 0;
+  }
+
+  .status {
+    margin-top: 14px; padding: 12px 14px; border-radius: 10px;
+    font-size: 13px; line-height: 1.4;
+  }
+  .status.info    { background: rgba(103,126,234,0.25); color: #dbe4ff; }
+  .status.error   { background: rgba(220,38,38,0.25);   color: #fecaca; }
+  .status.success { background: rgba(16,185,129,0.25);  color: #bbf7d0; }
+
+  .spinner {
+    display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.2); border-top-color: #ff9a3c;
+    animation: spin 0.9s linear infinite; margin-right: 6px; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">Be Strong Again</div>
+  <h1>Set up your Gym TV</h1>
+  <p class="sub">Pick your WiFi, enter your coach code, and we'll take it from there. Takes about 60 seconds.</p>
+
+  <div class="card">
+    <form id="setupForm">
+      <div class="field">
+        <label for="ssid">Your WiFi network</label>
+        <select id="ssid" required>
+          <option value="">Scanning…</option>
+        </select>
+        <button type="button" class="refresh" id="rescan">↻ Rescan</button>
+      </div>
+
+      <div class="field">
+        <label for="password">WiFi password</label>
+        <input id="password" type="password" autocomplete="current-password" placeholder="leave blank if open network">
+        <label class="toggle"><input type="checkbox" id="showpw"> Show password</label>
+      </div>
+
+      <div class="field">
+        <label for="coachCode">Coach code</label>
+        <input id="coachCode" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="e.g. GLENM7NUS" required>
+        <div class="hint">Ask your coach for their code. Looks like GLENM7NUS or STEVE42. Letters and numbers only.</div>
+      </div>
+
+      <button type="submit" class="primary" id="submitBtn">Connect Gym TV</button>
+    </form>
+
+    <div id="status"></div>
+  </div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const ssidEl = $("ssid"),
+        pwEl = $("password"),
+        codeEl = $("coachCode"),
+        submitBtn = $("submitBtn"),
+        statusEl = $("status");
+
+  $("showpw").addEventListener("change", (e) => {
+    pwEl.type = e.target.checked ? "text" : "password";
+  });
+
+  codeEl.addEventListener("input", (e) => {
+    e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  });
+
+  function setStatus(msg, kind) {
+    if (!msg) { statusEl.innerHTML = ""; return; }
+    statusEl.className = "status " + (kind || "info");
+    statusEl.innerHTML = (kind === "info" ? '<span class="spinner"></span>' : "") + msg;
+  }
+
+  async function loadNetworks() {
+    ssidEl.innerHTML = '<option value="">Scanning…</option>';
+    setStatus("Scanning for WiFi networks…", "info");
+    try {
+      const r = await fetch("/api/networks", { cache: "no-store" });
+      const d = await r.json();
+      const nets = d.networks || [];
+      ssidEl.innerHTML = '<option value="">— pick a network —</option>' +
+        nets.map(n =>
+          `<option value="${n.ssid.replace(/"/g, '&quot;')}">${n.ssid}${n.secured ? ' 🔒' : ''} (${n.signal}%)</option>`
+        ).join("");
+      setStatus("", null);
+      if (!nets.length) setStatus("No networks found — move closer to your router and rescan.", "error");
+    } catch (e) {
+      setStatus("Scan failed. Tap Rescan to try again.", "error");
+    }
+  }
+
+  $("rescan").addEventListener("click", loadNetworks);
+  loadNetworks();
+
+  $("setupForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const ssid = ssidEl.value;
+    const password = pwEl.value;
+    const coachCode = codeEl.value.trim().toUpperCase();
+    if (!ssid) { setStatus("Pick a WiFi network first.", "error"); return; }
+    if (!/^[A-Z0-9]{4,20}$/.test(coachCode)) { setStatus("Coach code must be 4–20 letters/digits.", "error"); return; }
+
+    submitBtn.disabled = true;
+    setStatus("Connecting to " + ssid + "…", "info");
+
+    try {
+      const r = await fetch("/api/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ssid, password, coachCode }),
+      });
+      const d = await r.json();
+      if (r.ok) {
+        setStatus(d.message || "Connected — your TV is loading the workout now.", "success");
+      } else {
+        setStatus(d.error || "Failed to connect.", "error");
+        submitBtn.disabled = false;
+      }
+    } catch (err) {
+      // The server kills itself on success, so this catch usually fires — check
+      // if we're actually connected by trying to reach an outside host.
+      setStatus("Network changed — you can close this page. Your TV will reload with the workout.", "success");
+    }
+  });
+</script>
+</body>
+</html>
