@@ -87,13 +87,13 @@ def bring_up_ap():
         log(f"connection add failed rc={rc}: {err}")
         return False
 
+    # IMPORTANT: do NOT touch wifi-sec at all. Setting key-mgmt=none still
+    # adds the security section and NM treats it as "WEP, key not provided"
+    # → hotspot fails with `wep-key0 not given`. Validated 2026-05-09 across
+    # three patterns; only "omit wifi-sec entirely" produces a true open AP.
     settings = [
         "802-11-wireless.mode ap",
         "802-11-wireless.band bg",
-        # Explicitly disable every security setting so NM never falls
-        # back to WEP. The previous portal only set key-mgmt=none which
-        # left wep-key0 required.
-        "wifi-sec.key-mgmt none",
         "ipv4.method shared",
         "ipv4.addresses 192.168.42.1/24",
         "ipv6.method ignore",
