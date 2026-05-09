@@ -43,11 +43,19 @@ captive portal will fire again. Or have your coach trigger
    git clone https://github.com/Glen-collab/bsa-tv-kiosk.git
    cd bsa-tv-kiosk
    sudo bash install.sh
-   sudo reboot
    ```
-4. After reboot, kiosk shows **"Connect to BSA-Kiosk-Setup"**. Follow
-   the coach quickstart above. (You can also pre-bake `/home/pi/bsa-config`
-   to skip the captive portal in dev — see install output.)
+4. **Enroll in Tailscale (one-time, gives you SSH from anywhere)**:
+   ```
+   sudo tailscale up --ssh --hostname=bsa-tv-$(hostname)
+   ```
+   Click the URL it prints, log into your Tailscale account, done.
+   From now on every kiosk in your fleet is reachable as
+   `bsa-tv-<hostname>` from any device on your Tailnet — laptop, phone,
+   home, gym, anywhere. No port-forwarding, no public-IP, no VPN setup.
+5. **Reboot:** `sudo reboot`. The kiosk shows
+   **"Connect to BSA-Kiosk-Setup"** — follow the coach quickstart
+   above. (You can also pre-bake `/home/pi/bsa-config` to skip the
+   captive portal in dev — see install output.)
 
 ---
 
@@ -109,10 +117,14 @@ their dashboard.
 
 - **Apr 26** — Pi 4 swap; `--force-device-scale-factor=2` for 4K LG TV;
   dash-safe URL build in autostart.
-- **May 9** — Captive portal AP rebuilt from scratch (`nmcli c add type
-  wifi`) instead of via `wifi hotspot`. Old path injected WPA which left
-  NM stuck demanding `wep-key0` and the AP never came up. Wrapper now
-  does a real internet probe and deletes stuck NM profiles.
+- **May 9 (morning)** — Captive portal AP rebuilt from scratch (`nmcli c
+  add type wifi`) instead of via `wifi hotspot`. Old path injected WPA
+  which left NM stuck demanding `wep-key0` and the AP never came up.
+- **May 9 (afternoon)** — Wrapper bug fixed: removed an over-eager "if
+  NM-connected but probe-fails for 30s, hand off to kiosk" branch that
+  caused the gym first-boot to skip launching the portal. Now always
+  fires the portal at 60s if no working internet. Also: Tailscale
+  installed by default for SSH-from-anywhere remote debugging.
 
 See `docs/TROUBLESHOOTING.md` for recovery procedures when something
 goes sideways at a gym you can't SSH into.

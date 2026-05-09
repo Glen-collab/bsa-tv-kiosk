@@ -44,26 +44,24 @@ cleanup_stuck_profiles() {
   done
 }
 
-log "waiting up to ${GRACE_SECS}s for internet on wlan0"
+log "waiting up to ${GRACE_SECS}s for working internet on wlan0"
 for i in $(seq 1 "$GRACE_SECS"); do
   STATE=$(nmcli -t -f GENERAL.STATE d show wlan0 2>/dev/null \
             | grep -oE '100 \(connected\)' || true)
-  if [ -n "$STATE" ]; then
-    if probe_internet; then
-      log "online after ${i}s — exiting without portal"
-      exit 0
-    fi
-    # Connected to NM but no internet — gym network might have a guest
-    # login page Chromium will surface. Don't fire portal, kiosk will
-    # show the captive page and a coach can tap-through.
-    if [ "$i" -ge 30 ]; then
-      log "NM connected but no internet probe after ${i}s — handing off to kiosk"
-      exit 0
-    fi
+  if [ -n "$STATE" ] && probe_internet; then
+    log "online after ${i}s — exiting without portal"
+    exit 0
   fi
   sleep 1
 done
 
-log "no internet after ${GRACE_SECS}s — cleaning stuck profiles + launching portal"
+# Reaching here means we went a full ${GRACE_SECS}s without a successful
+# internet probe. ALWAYS fire the portal. The previous "if NM-connected
+# but probe-fails for 30s, hand off to kiosk" branch was meant to handle
+# gym guest-portals, but in practice it tripped on stale half-associations
+# from a saved-but-unavailable home network, exiting without ever
+# launching our own portal. Cleaner to just always show the portal —
+# the user can pick a real WiFi from there.
+log "no working internet after ${GRACE_SECS}s — cleaning stuck profiles + launching portal"
 cleanup_stuck_profiles
 exec /usr/bin/python3 "$PORTAL"

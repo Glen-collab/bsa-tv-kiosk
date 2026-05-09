@@ -64,21 +64,44 @@ echo "==> ensuring log file exists with right perms"
 touch /var/log/wifi-connect-wrapper.log
 chmod 0664 /var/log/wifi-connect-wrapper.log
 
+echo "==> installing Tailscale (remote SSH from anywhere)"
+# Adds Tailscale's official apt repo + installs the daemon. Doesn't
+# enroll the device — that's a one-time `tailscale up` step (see Next
+# steps below). Skip this entire block if Tailscale is already present.
+if ! command -v tailscale >/dev/null 2>&1; then
+  curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg \
+    | tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
+  curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.tailscale-keyring.list \
+    | tee /etc/apt/sources.list.d/tailscale.list >/dev/null
+  apt-get update -qq
+  apt-get install -y tailscale
+else
+  echo "    tailscale already installed"
+fi
+
 echo "==> enabling systemd services"
 systemctl daemon-reload
 systemctl enable wifi-connect.service
 systemctl enable bsa-kiosk-agent.service
+systemctl enable --now tailscaled
 
 echo
 echo "================================================================"
 echo "  Install complete."
 echo
 echo "  Next steps:"
-echo "    1. If you DON'T have a coach code yet, you can reboot now and"
-echo "       the kiosk will show 'Connect to BSA-Kiosk-Setup' — pair"
-echo "       your phone, enter your gym WiFi + coach code."
-echo "    2. If you ALREADY have a coach code (e.g. dev/QA), put it in"
+echo "    1. Enroll this Pi in your Tailnet (one-time, opens a browser):"
+echo "         sudo tailscale up --ssh --hostname=bsa-tv-\$(hostname)"
+echo "       After this, you can SSH it from any of your Tailscale devices"
+echo "       at any network: ssh pi@bsa-tv-<hostname>"
+echo
+echo "    2. If you DON'T have a coach code yet, reboot and the kiosk"
+echo "       will show 'Connect to BSA-Kiosk-Setup' — pair your phone,"
+echo "       enter your gym WiFi + coach code."
+echo
+echo "    3. If you ALREADY have a coach code (e.g. dev/QA), put it in"
 echo "       /home/pi/bsa-config:"
 echo "         echo '{\"coach_code\":\"YOURCODE\"}' | sudo -u pi tee /home/pi/bsa-config"
-echo "    3. Reboot to start the kiosk:  sudo reboot"
+echo
+echo "    4. Reboot to start the kiosk:  sudo reboot"
 echo "================================================================"
