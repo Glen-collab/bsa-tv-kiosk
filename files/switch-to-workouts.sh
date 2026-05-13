@@ -1,23 +1,29 @@
 #!/bin/bash
 # switch-to-workouts.sh — flip the Pi from arcade mode back to the
-# workout-TV kiosk. Called by bsa-kiosk-agent.py when
-# /api/kiosk/tv-config shows display_mode == workout (after having
-# been in a game_* mode).
+# workout-TV kiosk. Called by:
+#   • bsa-kiosk-agent.py when /api/kiosk/tv-config flips display_mode
+#     back to 'workout' (admin pressed Stop on the dashboard)
+#   • pi_arcade_kiosk's /api/exit-to-workouts when the user picked the
+#     on-screen "← Back to Workouts" tile with a gamepad / touch
 #
-# Side-effects:
-#   • kills RetroArch
-#   • respawns the Chromium workout kiosk via labwc-autostart's
-#     existing wrapper
+# Mechanism: clear /tmp/bsa-mode (so labwc-autostart's pick_url reverts
+# to the workout URL on respawn), kill any in-progress retroarch, and
+# pkill the arcade Chromium so labwc respawns into the workout view.
 
 set -u
 
+rm -f /tmp/bsa-mode 2>/dev/null
+
+# Stop any in-progress emulator first so the workout view doesn't have
+# to fight retroarch for the display.
 pkill -x retroarch 2>/dev/null
-sleep 1
 
-# The workout Chromium is normally respawned by labwc-autostart in a
-# loop. If our switch-to-arcade.sh killed it, autostart should pick it
-# back up — but to be safe, nudge labwc to re-read autostart so the
-# kiosk loop relaunches without waiting for the next respawn tick.
-pkill -HUP labwc 2>/dev/null
+# Kill the arcade Chromium — labwc-autostart's respawn picks the
+# (now-default) workout URL on the next iteration.
+pkill -x chromium 2>/dev/null
+pkill -f "/usr/bin/chromium" 2>/dev/null
 
-echo "workout mode requested (retroarch killed; labwc HUPed)"
+# Free RAM — the Flask launcher isn't needed until the next arcade flip.
+systemctl stop pi-arcade.service 2>/dev/null || true
+
+echo "workout mode requested"

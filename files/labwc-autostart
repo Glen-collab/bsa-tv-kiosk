@@ -46,10 +46,25 @@ SETUP_URL="file:///home/pi/setup-instructions.html"
 # (its own offline page). The previous curl-based pre-check was too
 # brittle: a single timed-out probe would pin the kiosk on the
 # setup-instructions page until the next reboot.
+#
+# Mode override: /tmp/bsa-mode lets switch-to-arcade.sh flip the kiosk
+# into the local Pi Arcade Flask (http://localhost:8088). Recognized
+# values: arcade-nes, arcade-snes. Anything else (or no file) defaults
+# to the workout URL. The respawn loop is the swap mechanism — switch
+# script pkills chromium, this function picks the new URL on respawn.
+#
 # Note: labwc sources this file via /bin/sh (dash), which does NOT
 # support bash's ${VAR/pat/repl} parameter substitution — build the URL
 # with plain concatenation so it works under both bash and dash.
+MODE_FILE="/tmp/bsa-mode"
 pick_url() {
+  if [ -f "$MODE_FILE" ]; then
+    MODE=$(head -1 "$MODE_FILE" 2>/dev/null | tr -d '[:space:]')
+    case "$MODE" in
+      arcade-nes)  echo "http://localhost:8088/?system=nes";  return ;;
+      arcade-snes) echo "http://localhost:8088/?system=snes"; return ;;
+    esac
+  fi
   CC=$(read_coach_code)
   if [ -z "$CC" ]; then
     echo "$SETUP_URL"

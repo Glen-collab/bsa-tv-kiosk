@@ -5,52 +5,34 @@
 #
 # Usage: switch-to-arcade.sh <nes|snes>
 #
-# Side-effects:
-#   • kills the workout Chromium kiosk
-#   • execs RetroArch full-screen with the requested core
-#   • logs to /tmp/retroarch.log
-#
-# RetroArch + cores + ROMs are NOT installed by this script — see
-# docs/RETRO_GAMES_PLAN.md for the one-time Pi setup.
+# Mechanism: writes /tmp/bsa-mode so labwc-autostart's pick_url returns
+# the local Pi Arcade Flask URL on the next respawn, then pkills the
+# current Chromium kiosk so the respawn fires immediately. Best-effort
+# starts the pi-arcade systemd service (no-op if already running or if
+# the pi_arcade_kiosk package isn't installed — Chromium will show a
+# clear "site can't be reached" page in that case).
 
 set -u
 
 SYSTEM="${1:-}"
 case "$SYSTEM" in
-  nes)  CORE="/usr/lib/libretro/fceumm_libretro.so" ; ROM_DIR="/home/pi/roms/nes"  ;;
-  snes) CORE="/usr/lib/libretro/snes9x_libretro.so" ; ROM_DIR="/home/pi/roms/snes" ;;
+  nes|snes) ;;
   *)
     echo "usage: $0 <nes|snes>" >&2
     exit 2
     ;;
 esac
 
-if [ ! -f "$CORE" ]; then
-  echo "RetroArch core missing: $CORE" >&2
-  exit 3
-fi
+echo "arcade-$SYSTEM" > /tmp/bsa-mode
 
-# Pick the first ROM in the system dir. The mode-switch is "drop the
-# user into something playable" — game-selection UX comes from the
-# RetroArch quick-menu (start to open).
-ROM="$(ls -1 "$ROM_DIR"/*.{nes,smc,sfc,zip} 2>/dev/null | head -1)"
-if [ -z "$ROM" ]; then
-  echo "No ROMs found in $ROM_DIR" >&2
-  exit 4
-fi
+# Best-effort start of the local arcade Flask. Failures are non-fatal
+# so a Pi without pi_arcade_kiosk installed still flips cleanly (and
+# the user sees a Chromium load-failed page that points at the config).
+systemctl start pi-arcade.service 2>/dev/null || true
 
-# Kill the workout Chromium and any prior RetroArch so the next one
-# owns the display cleanly.
-pkill -x chromium      2>/dev/null
+# Kill the workout Chromium — labwc-autostart's respawn loop picks the
+# new URL from /tmp/bsa-mode on the next iteration.
+pkill -x chromium 2>/dev/null
 pkill -f "/usr/bin/chromium" 2>/dev/null
-pkill -x retroarch     2>/dev/null
-sleep 1
 
-export DISPLAY=:0
-export XAUTHORITY="$(ls /tmp/serverauth.* 2>/dev/null | head -1)"
-
-# Run as the pi user, full-screen.
-nohup retroarch -L "$CORE" "$ROM" --fullscreen \
-  >/tmp/retroarch.log 2>&1 &
-
-echo "arcade mode active (system=$SYSTEM rom=$(basename "$ROM") pid=$!)"
+echo "arcade mode requested (system=$SYSTEM)"
