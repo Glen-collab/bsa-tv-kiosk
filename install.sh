@@ -50,6 +50,10 @@ echo "==> deploying kiosk command agent"
 install -m 0755 -o root -g root "$FILES/bsa-kiosk-agent.py"       /usr/local/sbin/bsa-kiosk-agent.py
 install -m 0644 -o root -g root "$FILES/bsa-kiosk-agent.service"  /etc/systemd/system/bsa-kiosk-agent.service
 
+echo "==> deploying mode-switch scripts (workout TV <-> retro arcade)"
+install -m 0755 -o root -g root "$FILES/switch-to-arcade.sh"      /usr/local/sbin/switch-to-arcade.sh
+install -m 0755 -o root -g root "$FILES/switch-to-workouts.sh"    /usr/local/sbin/switch-to-workouts.sh
+
 echo "==> deploying sudoers (allows agent to run reboot/shutdown without password)"
 install -d -m 0750 /etc/sudoers.d
 install -m 0440 -o root -g root "$FILES/010_pi-kiosk-agent"       /etc/sudoers.d/010_pi-kiosk-agent

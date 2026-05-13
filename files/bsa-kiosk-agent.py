@@ -32,6 +32,13 @@ CONFIG_PATH = os.environ.get("BSA_CONFIG_PATH", "/home/pi/bsa-config")
 POLL_INTERVAL = int(os.environ.get("BSA_POLL_INTERVAL", "10"))  # seconds
 HTTP_TIMEOUT = 8
 
+# Pi-side mode-switch scripts. The agent execs these when the backend
+# tv-config response shows display_mode transitioning to / out of a
+# game_* value. RetroArch + ROMs must already be installed on the Pi
+# for switch-to-arcade.sh to do anything; otherwise it logs and exits.
+SWITCH_TO_ARCADE   = os.environ.get("BSA_SWITCH_ARCADE",   "/usr/local/sbin/switch-to-arcade.sh")
+SWITCH_TO_WORKOUTS = os.environ.get("BSA_SWITCH_WORKOUTS", "/usr/local/sbin/switch-to-workouts.sh")
+
 logging.basicConfig(
     format="[%(asctime)s] %(levelname)s %(message)s",
     level=logging.INFO,
@@ -101,6 +108,67 @@ def poll(coach_code):
     return http_get(url).get("commands", [])
 
 
+def read_device_serial():
+    """Same CPU serial labwc-autostart sends as ?device= when launching
+    Chromium. The backend uses (coach_id, device_serial) as the unique
+    key for coach_devices, so this is how the agent identifies its row
+    in /tv-config responses."""
+    try:
+        with open("/proc/cpuinfo", "r") as f:
+            for line in f:
+                if line.startswith("Serial"):
+                    return line.split(":", 1)[1].strip()
+    except Exception as e:
+        log.warning("Could not read device serial: %s", e)
+    return ""
+
+
+def poll_tv_config(coach_code, serial):
+    """Returns the device.display.mode string or None on error/missing."""
+    if not serial:
+        return None
+    url = (
+        f"{API_BASE}/tv-config"
+        f"?coach={urllib.request.quote(coach_code)}"
+        f"&device={urllib.request.quote(serial)}"
+    )
+    try:
+        data = http_get(url)
+    except Exception as e:
+        log.warning("tv-config poll failed: %s", e)
+        return None
+    device = data.get("device") or {}
+    display = device.get("display") or {}
+    return display.get("mode")
+
+
+def handle_mode_change(prev_mode, new_mode):
+    """Exec the matching switch script on display_mode transition.
+    No-ops if the mode is unchanged or if neither endpoint involves
+    a game state."""
+    if new_mode == prev_mode:
+        return
+    going_to_game   = new_mode in ("game_nes", "game_snes")
+    leaving_game    = prev_mode in ("game_nes", "game_snes")
+    if going_to_game:
+        system = "nes" if new_mode == "game_nes" else "snes"
+        log.info("display_mode %s -> %s, launching arcade", prev_mode, new_mode)
+        try:
+            subprocess.Popen([SWITCH_TO_ARCADE, system])
+        except FileNotFoundError:
+            log.error("Arcade script missing: %s", SWITCH_TO_ARCADE)
+        except Exception as e:
+            log.exception("Failed to exec arcade script: %s", e)
+    elif leaving_game:
+        log.info("display_mode %s -> %s, returning to workout kiosk", prev_mode, new_mode)
+        try:
+            subprocess.Popen([SWITCH_TO_WORKOUTS])
+        except FileNotFoundError:
+            log.error("Workouts script missing: %s", SWITCH_TO_WORKOUTS)
+        except Exception as e:
+            log.exception("Failed to exec workouts script: %s", e)
+
+
 def ack(cmd_id):
     try:
         http_post(f"{API_BASE}/commands/{cmd_id}/ack")
@@ -140,8 +208,13 @@ def main():
     if not coach_code:
         log.error("No COACH_CODE in %s; exiting", CONFIG_PATH)
         sys.exit(1)
-    log.info("Agent online — polling %s for coach=%s every %ds", API_BASE, coach_code, POLL_INTERVAL)
+    serial = read_device_serial()
+    log.info(
+        "Agent online — polling %s for coach=%s device=%s every %ds",
+        API_BASE, coach_code, serial[-6:] or "?", POLL_INTERVAL,
+    )
     backoff = POLL_INTERVAL
+    last_display_mode = None
     while True:
         try:
             cmds = poll(coach_code)
@@ -151,6 +224,12 @@ def main():
                     # System is going down — stop polling and let systemd kill us.
                     time.sleep(30)
                     return
+            # Mode-switch check piggybacks on the same poll cadence. Only
+            # transitions trigger script execs; steady-state is a no-op.
+            new_mode = poll_tv_config(coach_code, serial)
+            if new_mode is not None:
+                handle_mode_change(last_display_mode, new_mode)
+                last_display_mode = new_mode
         except urllib.error.URLError as e:
             log.warning("Poll failed (network): %s", e)
             backoff = min(backoff * 2, 120)
