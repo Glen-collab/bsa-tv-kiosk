@@ -25,6 +25,11 @@ esac
 
 echo "arcade-$SYSTEM" > /tmp/bsa-mode
 
+# Kill any in-progress game before flipping. Without this, an attract
+# demo or active session from the previous mode keeps running fullscreen
+# and the user can't see the new system's picker until they F4 quit.
+pkill -x retroarch 2>/dev/null
+
 # Best-effort start of the local arcade Flask. Failures are non-fatal
 # so a Pi without pi_arcade_kiosk installed still flips cleanly (and
 # the user sees a Chromium load-failed page that points at the config).
