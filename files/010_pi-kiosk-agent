@@ -1,1 +1,1 @@
-pi ALL=(ALL) NOPASSWD: /sbin/reboot, /sbin/shutdown, /usr/sbin/shutdown, /usr/sbin/reboot, /usr/bin/pkill
+pi ALL=(ALL) NOPASSWD: /sbin/reboot, /sbin/shutdown, /usr/sbin/shutdown, /usr/sbin/reboot, /usr/bin/pkill, /bin/systemctl start pi-arcade.service, /bin/systemctl stop pi-arcade.service, /usr/bin/systemctl start pi-arcade.service, /usr/bin/systemctl stop pi-arcade.service

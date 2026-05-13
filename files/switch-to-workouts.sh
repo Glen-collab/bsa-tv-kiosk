@@ -24,6 +24,7 @@ pkill -x chromium 2>/dev/null
 pkill -f "/usr/bin/chromium" 2>/dev/null
 
 # Free RAM — the Flask launcher isn't needed until the next arcade flip.
-systemctl stop pi-arcade.service 2>/dev/null || true
+# sudo per the sudoers entry in 010_pi-kiosk-agent.
+sudo systemctl stop pi-arcade.service 2>/dev/null || true
 
 echo "workout mode requested"
