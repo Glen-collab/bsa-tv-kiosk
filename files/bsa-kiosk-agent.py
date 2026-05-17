@@ -198,6 +198,18 @@ def execute(cmd):
         ack(cmd_id)
         subprocess.Popen(["pkill", "-HUP", "chromium"])
         return False
+    if name == "quit_game":
+        # Kill the currently running RetroArch game without leaving arcade
+        # mode. The pi-arcade Flask backend on :8088 owns the subprocess
+        # handle, so going through its /api/quit endpoint cleanly resets
+        # current_proc and lets the picker JS detect the exit on its
+        # next /api/status poll.
+        ack(cmd_id)
+        try:
+            http_post("http://localhost:8088/api/quit")
+        except Exception as e:
+            log.warning("quit_game failed: %s", e)
+        return False
     log.warning("Unknown command: %s", name)
     ack(cmd_id)  # ack so we don't loop forever on a garbage row
     return False
