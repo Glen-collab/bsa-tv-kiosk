@@ -103,8 +103,13 @@ def http_post(url, body=None):
         return json.load(resp)
 
 
-def poll(coach_code):
+def poll(coach_code, serial=None):
+    # device serial is required for per-device targeting — without it the
+    # backend's poll endpoint matches only broadcast commands and any
+    # Shutdown/Reboot Glen taps on a specific TV silently no-ops.
     url = f"{API_BASE}/commands?coach_code={urllib.request.quote(coach_code)}"
+    if serial:
+        url += f"&device={urllib.request.quote(serial)}"
     return http_get(url).get("commands", [])
 
 
@@ -229,7 +234,7 @@ def main():
     last_display_mode = None
     while True:
         try:
-            cmds = poll(coach_code)
+            cmds = poll(coach_code, serial)
             backoff = POLL_INTERVAL
             for cmd in cmds:
                 if execute(cmd):
