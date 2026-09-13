@@ -16,9 +16,9 @@ set -u
 
 SYSTEM="${1:-}"
 case "$SYSTEM" in
-  nes|snes) ;;
+  nes|snes|n64|gba) ;;
   *)
-    echo "usage: $0 <nes|snes>" >&2
+    echo "usage: $0 <nes|snes|n64|gba>" >&2
     exit 2
     ;;
 esac

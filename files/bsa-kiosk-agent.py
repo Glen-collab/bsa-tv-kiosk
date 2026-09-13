@@ -128,7 +128,23 @@ def read_device_serial():
     return ""
 
 
-def poll_tv_config(coach_code, serial):
+ARCADE_ROMS_DIR = os.environ.get("BSA_ARCADE_ROMS", "/home/pi/pi_arcade_kiosk/roms")
+
+
+def scan_available_systems():
+    """Check which rom subdirectories have actual files. Returns a
+    comma-separated string like 'nes,snes,n64,gba'."""
+    systems = []
+    if not os.path.isdir(ARCADE_ROMS_DIR):
+        return ""
+    for name in sorted(os.listdir(ARCADE_ROMS_DIR)):
+        sys_dir = os.path.join(ARCADE_ROMS_DIR, name)
+        if os.path.isdir(sys_dir) and os.listdir(sys_dir):
+            systems.append(name)
+    return ",".join(systems)
+
+
+def poll_tv_config(coach_code, serial, systems_str=""):
     """Returns the device.display.mode string or None on error/missing."""
     if not serial:
         return None
@@ -137,6 +153,8 @@ def poll_tv_config(coach_code, serial):
         f"?coach={urllib.request.quote(coach_code)}"
         f"&device={urllib.request.quote(serial)}"
     )
+    if systems_str:
+        url += f"&systems={urllib.request.quote(systems_str)}"
     try:
         data = http_get(url)
     except Exception as e:
@@ -153,10 +171,10 @@ def handle_mode_change(prev_mode, new_mode):
     a game state."""
     if new_mode == prev_mode:
         return
-    going_to_game   = new_mode in ("game_nes", "game_snes")
-    leaving_game    = prev_mode in ("game_nes", "game_snes")
+    going_to_game   = new_mode is not None and new_mode.startswith("game_")
+    leaving_game    = prev_mode is not None and prev_mode.startswith("game_")
     if going_to_game:
-        system = "nes" if new_mode == "game_nes" else "snes"
+        system = new_mode.replace("game_", "", 1)
         log.info("display_mode %s -> %s, launching arcade", prev_mode, new_mode)
         try:
             subprocess.Popen([SWITCH_TO_ARCADE, system])
@@ -226,9 +244,10 @@ def main():
         log.error("No COACH_CODE in %s; exiting", CONFIG_PATH)
         sys.exit(1)
     serial = read_device_serial()
+    systems_str = scan_available_systems()
     log.info(
-        "Agent online — polling %s for coach=%s device=%s every %ds",
-        API_BASE, coach_code, serial[-6:] or "?", POLL_INTERVAL,
+        "Agent online — polling %s for coach=%s device=%s systems=%s every %ds",
+        API_BASE, coach_code, serial[-6:] or "?", systems_str or "none", POLL_INTERVAL,
     )
     backoff = POLL_INTERVAL
     last_display_mode = None
@@ -243,7 +262,7 @@ def main():
                     return
             # Mode-switch check piggybacks on the same poll cadence. Only
             # transitions trigger script execs; steady-state is a no-op.
-            new_mode = poll_tv_config(coach_code, serial)
+            new_mode = poll_tv_config(coach_code, serial, systems_str)
             if new_mode is not None:
                 handle_mode_change(last_display_mode, new_mode)
                 last_display_mode = new_mode

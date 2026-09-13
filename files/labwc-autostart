@@ -63,6 +63,8 @@ pick_url() {
     case "$MODE" in
       arcade-nes)  echo "http://localhost:8088/?system=nes";  return ;;
       arcade-snes) echo "http://localhost:8088/?system=snes"; return ;;
+      arcade-n64)  echo "http://localhost:8088/?system=n64";  return ;;
+      arcade-gba)  echo "http://localhost:8088/?system=gba";  return ;;
     esac
   fi
   CC=$(read_coach_code)
